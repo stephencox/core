@@ -1,5 +1,14 @@
 <form>
     <field>
+        <id>schedule</id>
+        <label>Schedule</label>
+        <type>text</type>
+        <readonly>true</readonly>
+        <grid_view>
+            <ignore>true</ignore>
+        </grid_view>
+    </field>
+    <field>
         <id>editor.mode</id>
         <label>Repeat</label>
         <type>dropdown</type>

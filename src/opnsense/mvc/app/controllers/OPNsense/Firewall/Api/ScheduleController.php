@@ -147,10 +147,16 @@ class ScheduleController extends ApiMutableModelControllerBase
 
     public function addRangeAction()
     {
-        Config::getInstance()->lock();
-        $schedule = $this->findSchedule($this->request->get('schedule', 'string', ''));
-        if ($schedule === null) {
+        if (!$this->request->isPost() || !$this->request->hasPost('timerange')) {
             return ['result' => 'failed'];
+        }
+        Config::getInstance()->lock();
+        $schedule = $this->findSchedule($this->request->getPost('schedule', 'string', ''));
+        if ($schedule === null) {
+            return [
+                'result' => 'failed',
+                'validations' => ['schedule' => gettext('Select a schedule before adding a time range.')]
+            ];
         }
         return $this->addBase('timerange', $schedule->timerange->__reference);
     }
