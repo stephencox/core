@@ -59,7 +59,7 @@ class ScheduleController extends ApiMutableModelControllerBase
 
     private function findRange($id)
     {
-        [$name, $index] = array_pad(explode(':', $id, 2), 2, '');
+        [$name, $index] = array_pad(explode('.', $id, 2), 2, '');
         $schedule = $this->findSchedule($name);
         if ($schedule === null || !ctype_digit($index)) {
             return null;
@@ -85,8 +85,10 @@ class ScheduleController extends ApiMutableModelControllerBase
     {
         Config::getInstance()->lock();
         $schedule = $this->findSchedule($name);
-        return $schedule === null ? ['result' => 'failed'] :
-            $this->setBase('schedule', 'schedule', $schedule->getAttribute('uuid'));
+        if ($schedule === null) {
+            return ['result' => 'failed'];
+        }
+        return $this->setBase('schedule', 'schedule', $schedule->getAttribute('uuid'));
     }
 
     public function delItemAction($names)
@@ -111,7 +113,7 @@ class ScheduleController extends ApiMutableModelControllerBase
             foreach (array_values($schedule->timerange->getChildren()) as $index => $range) {
                 $rows[] = array_merge(
                     $range->getNodeContent(),
-                    ['uuid' => $schedule->name->getValue() . ':' . $index]
+                    ['uuid' => $schedule->name->getValue() . '.' . $index]
                 );
             }
         }
@@ -133,49 +135,37 @@ class ScheduleController extends ApiMutableModelControllerBase
             }
             $schedule = $range->getParentNode()->getParentNode();
         }
-        $result = [
+        return [
             'timerange' => $range->getNodes(),
             'editor' => [
                 'start' => $range->hour->getTimeOptions(0),
                 'stop' => $range->hour->getTimeOptions(1)
             ],
-            'schedule' => []
+            'schedule' => $schedule->name->getValue()
         ];
-        foreach ($this->getModel()->schedule->iterateItems() as $parent) {
-            $name = $parent->name->getValue();
-            $result['schedule'][$name] = [
-                'value' => $name,
-                'selected' => $schedule->name->isEqual($name) ? 1 : 0
-            ];
-        }
-        return $result;
     }
 
     public function addRangeAction()
     {
         Config::getInstance()->lock();
         $schedule = $this->findSchedule($this->request->get('schedule', 'string', ''));
-        return $schedule === null ? ['result' => 'failed'] :
-            $this->addBase('timerange', $schedule->timerange->__reference);
+        if ($schedule === null) {
+            return ['result' => 'failed'];
+        }
+        return $this->addBase('timerange', $schedule->timerange->__reference);
     }
 
     public function setRangeAction($id)
     {
-        if (!$this->request->isPost() || !$this->request->hasPost('timerange')) {
+        if (!$this->request->isPost()) {
             return ['result' => 'failed'];
         }
         Config::getInstance()->lock();
         $range = $this->findRange($id);
-        $schedule = $this->findSchedule($this->request->getPost('schedule', 'string', ''));
-        if ($range === null || $schedule === null) {
+        if ($range === null) {
             return ['result' => 'failed'];
         }
-        if ($range->getParentNode() !== $schedule->timerange) {
-            $values = array_replace($range->getNodeContent(), $this->request->getPost('timerange'));
-            $range->getParentNode()->del($range->getAttribute('uuid'));
-            return $this->addBase('timerange', $schedule->timerange->__reference, $values);
-        }
-        return $this->setBase('timerange', $schedule->timerange->__reference, $range->getAttribute('uuid'));
+        return $this->setBase('timerange', $range->getParentNode()->__reference, $range->getAttribute('uuid'));
     }
 
     public function delRangeAction($ids)
@@ -184,6 +174,7 @@ class ScheduleController extends ApiMutableModelControllerBase
             return ['result' => 'failed'];
         }
         Config::getInstance()->lock();
+        // Resolve all positions before deleting, so bulk deletion cannot shift the remaining indexes.
         $ranges = [];
         foreach (explode(',', $ids) as $id) {
             $range = $this->findRange($id);
