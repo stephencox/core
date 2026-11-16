@@ -35,23 +35,22 @@ use OPNsense\Core\Config;
 class Schedule extends BaseModel
 {
     private array $originalNames = [];
-    private array $originalRanges = [];
 
     protected function init()
     {
         foreach ($this->schedule->iterateItems() as $uuid => $schedule) {
             $this->originalNames[$uuid] = $schedule->name->getValue();
-            $this->originalRanges[$uuid] = array_keys($schedule->timerange->getChildren());
         }
     }
 
     /**
-     * Validate schedule membership and references in addition to the individual fields.
+     * Validate schedule names and references in addition to the individual fields.
      */
     public function performValidation($validateFullModel = false)
     {
         $messages = parent::performValidation($validateFullModel);
-        foreach ($this->schedule->iterateItems() as $uuid => $schedule) {
+        // XXX: The legacy editor requires at least one time range; revisit this after the master/detail GUI works.
+        foreach ($this->schedule->iterateItems() as $schedule) {
             if ($validateFullModel || $schedule->name->isFieldChanged()) {
                 // XXX: Legacy editor restriction; verify whether LAN and WAN still need to be reserved names.
                 if (in_array(strtolower($schedule->name->getValue()), ['lan', 'wan'])) {
@@ -60,19 +59,6 @@ class Schedule extends BaseModel
                         $schedule->name->__reference
                     ));
                 }
-            }
-            if (
-                !$validateFullModel && !$schedule->isFieldChanged() &&
-                ($this->originalRanges[$uuid] ?? null) === array_keys($schedule->timerange->getChildren())
-            ) {
-                continue;
-            }
-            // XXX: Legacy editor requires a range; review whether an empty, inactive schedule should be allowed.
-            if (count($schedule->timerange->getChildren()) === 0) {
-                $messages->appendMessage(new Message(
-                    gettext('The schedule must have at least one time range configured.'),
-                    $schedule->timerange->__reference
-                ));
             }
         }
 

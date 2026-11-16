@@ -1,0 +1,53 @@
+<form>
+    <field>
+        <id>schedule</id>
+        <type>hidden</type>
+        <grid_view>
+            <ignore>true</ignore>
+        </grid_view>
+    </field>
+    <field>
+        <id>timerange.position</id>
+        <label>Weekdays</label>
+        <type>select_multiple</type>
+        <help>Select weekdays, or leave empty and specify months and days.</help>
+        <grid_view>
+            <formatter>text</formatter>
+        </grid_view>
+    </field>
+    <field>
+        <id>timerange.month</id>
+        <label>Months</label>
+        <type>text</type>
+        <help>Comma-separated months, in the same order as the days.</help>
+        <grid_view>
+            <formatter>text</formatter>
+        </grid_view>
+    </field>
+    <field>
+        <id>timerange.day</id>
+        <label>Days</label>
+        <type>text</type>
+        <help>Comma-separated days, paired with the months.</help>
+        <grid_view>
+            <formatter>text</formatter>
+        </grid_view>
+    </field>
+    <field>
+        <id>timerange.hour</id>
+        <label>Time range</label>
+        <type>text</type>
+        <help>For example 8:00-17:00. Leave empty for the whole day.</help>
+        <grid_view>
+            <formatter>text</formatter>
+        </grid_view>
+    </field>
+    <field>
+        <id>timerange.rangedescr</id>
+        <label>Description</label>
+        <type>text</type>
+        <grid_view>
+            <formatter>text</formatter>
+        </grid_view>
+    </field>
+</form>
