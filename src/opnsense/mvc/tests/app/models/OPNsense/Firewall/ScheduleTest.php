@@ -34,21 +34,6 @@ use OPNsense\Firewall\Schedule;
 
 class ScheduleTest extends \PHPUnit\Framework\TestCase
 {
-    private $configDir;
-
-    protected function setUp(): void
-    {
-        $app = new AppConfig();
-        $this->configDir = $app->application->configDir;
-        $app->update('application.configDir', __DIR__ . '/Schedule');
-        Config::getInstance()->forceReload();
-    }
-
-    protected function tearDown(): void
-    {
-        (new AppConfig())->update('application.configDir', $this->configDir);
-    }
-
     /**
      * Compare the legacy payload, allowing MVC UUID attributes and empty optional tags.
      */
@@ -69,10 +54,18 @@ class ScheduleTest extends \PHPUnit\Framework\TestCase
 
     public function testOutputMatchesFixture()
     {
-        $this->assertSame(
-            $this->payload(Config::getInstance()->object()->schedules->schedule),
-            $this->payload((new Schedule())->toXML()->schedule)
-        );
+        $app = new AppConfig();
+        $configDir = $app->application->configDir;
+        try {
+            $app->update('application.configDir', __DIR__ . '/Schedule');
+            Config::getInstance()->forceReload();
+            $this->assertSame(
+                $this->payload(Config::getInstance()->object()->schedules->schedule),
+                $this->payload((new Schedule())->toXML()->schedule)
+            );
+        } finally {
+            $app->update('application.configDir', $configDir);
+            Config::getInstance()->forceReload();
+        }
     }
-
 }

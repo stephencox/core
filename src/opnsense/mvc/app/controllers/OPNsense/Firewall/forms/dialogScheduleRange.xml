@@ -9,16 +9,9 @@
         </grid_view>
     </field>
     <field>
-        <id>editor.mode</id>
-        <label>Repeat</label>
-        <type>dropdown</type>
-        <grid_view>
-            <ignore>true</ignore>
-        </grid_view>
-    </field>
-    <field>
         <id>timerange.position</id>
         <label>Weekdays</label>
+        <help>Choose weekdays or calendar dates. Selecting one clears the other.</help>
         <type>select_multiple</type>
         <grid_view>
             <formatter>weekdays</formatter>
@@ -72,7 +65,7 @@
         <label>Time range</label>
         <type>text</type>
         <grid_view>
-            <formatter>hours</formatter>
+            <formatter>text</formatter>
         </grid_view>
     </field>
     <field>

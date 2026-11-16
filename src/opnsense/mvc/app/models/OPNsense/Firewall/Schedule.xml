@@ -31,13 +31,10 @@
                 </position>
                 <!-- These are parallel lists, not sets!!! Order and duplicates are significant. -->
                 <month type=".\ScheduleListField">
-                    <AsList>Y</AsList>
                 </month>
                 <day type=".\ScheduleListField">
-                    <AsList>Y</AsList>
                 </day>
                 <hour type=".\ScheduleListField">
-                    <AsList>Y</AsList>
                     <FieldSeparator>-</FieldSeparator>
                 </hour>
                 <rangedescr type="TextField"/>

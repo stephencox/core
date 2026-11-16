@@ -1,10 +1,6 @@
 <?xml version="1.0"?>
 <opnsense>
-  <system>
-    <hostname>schedule-test</hostname>
-  </system>
   <schedules>
-    <unrelated>preserve this sibling</unrelated>
     <schedule>
       <name>Office_Hours</name>
       <descr>Office &amp; support access</descr>
@@ -69,21 +65,4 @@
       </timerange>
     </schedule>
   </schedules>
-  <filter>
-    <rule>
-      <sched>Office_Hours</sched>
-      <descr>Legacy reference</descr>
-    </rule>
-  </filter>
-  <OPNsense>
-    <Firewall>
-      <Filter>
-        <rules>
-          <rule uuid="0a3678eb-077d-4b8a-8bee-a01aeedc5856">
-            <sched>Holiday-Access</sched>
-          </rule>
-        </rules>
-      </Filter>
-    </Firewall>
-  </OPNsense>
 </opnsense>

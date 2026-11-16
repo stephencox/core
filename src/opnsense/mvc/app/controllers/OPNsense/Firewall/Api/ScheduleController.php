@@ -93,16 +93,7 @@ class ScheduleController extends ApiMutableModelControllerBase
 
     public function delItemAction($names)
     {
-        Config::getInstance()->lock();
-        $uuids = [];
-        foreach (explode(',', $names) as $name) {
-            $schedule = $this->findSchedule($name);
-            if ($schedule === null) {
-                return ['result' => 'failed'];
-            }
-            $uuids[] = $schedule->getAttribute('uuid');
-        }
-        return $this->delBase('schedule', implode(',', $uuids));
+        return $this->deleteItems($names, [$this, 'findSchedule']);
     }
 
     public function searchRangeAction()
@@ -111,10 +102,9 @@ class ScheduleController extends ApiMutableModelControllerBase
         $rows = [];
         if ($schedule !== null) {
             foreach (array_values($schedule->timerange->getChildren()) as $index => $range) {
-                $rows[] = array_merge(
-                    $range->getNodeContent(),
-                    ['uuid' => $schedule->name->getValue() . '.' . $index]
-                );
+                $rows[] = $range->getNodeContent() + [
+                    'uuid' => $schedule->name->getValue() . '.' . $index
+                ];
             }
         }
         return $this->searchRecordsetBase($rows);
@@ -122,18 +112,11 @@ class ScheduleController extends ApiMutableModelControllerBase
 
     public function getRangeAction($id = null)
     {
-        if ($id === null) {
-            $schedule = $this->findSchedule($this->request->get('schedule', 'string', ''));
-            if ($schedule === null) {
-                return [];
-            }
-            $range = $schedule->timerange->add();
-        } else {
-            $range = $this->findRange($id);
-            if ($range === null) {
-                return [];
-            }
-            $schedule = $range->getParentNode()->getParentNode();
+        $range = $id === null ?
+            $this->findSchedule($this->request->get('schedule', 'string', ''))?->timerange->add() :
+            $this->findRange($id);
+        if ($range === null) {
+            return [];
         }
         return [
             'timerange' => $range->getNodes(),
@@ -141,15 +124,12 @@ class ScheduleController extends ApiMutableModelControllerBase
                 'start' => $range->hour->getTimeOptions(0),
                 'stop' => $range->hour->getTimeOptions(1)
             ],
-            'schedule' => $schedule->name->getValue()
+            'schedule' => $range->getParentNode()->getParentNode()->name->getValue()
         ];
     }
 
     public function addRangeAction()
     {
-        if (!$this->request->isPost() || !$this->request->hasPost('timerange')) {
-            return ['result' => 'failed'];
-        }
         Config::getInstance()->lock();
         $schedule = $this->findSchedule($this->request->getPost('schedule', 'string', ''));
         if ($schedule === null) {
@@ -163,9 +143,6 @@ class ScheduleController extends ApiMutableModelControllerBase
 
     public function setRangeAction($id)
     {
-        if (!$this->request->isPost()) {
-            return ['result' => 'failed'];
-        }
         Config::getInstance()->lock();
         $range = $this->findRange($id);
         if ($range === null) {
@@ -176,29 +153,28 @@ class ScheduleController extends ApiMutableModelControllerBase
 
     public function delRangeAction($ids)
     {
+        return $this->deleteItems($ids, [$this, 'findRange']);
+    }
+
+    private function deleteItems($ids, callable $lookup)
+    {
         if (!$this->request->isPost()) {
             return ['result' => 'failed'];
         }
         Config::getInstance()->lock();
-        // Resolve all positions before deleting, so bulk deletion cannot shift the remaining indexes.
-        $ranges = [];
+        // Resolve positions before deleting so bulk deletion cannot shift the remaining indexes.
+        $items = [];
         foreach (explode(',', $ids) as $id) {
-            $range = $this->findRange($id);
-            if ($range === null) {
+            $item = $lookup($id);
+            if ($item === null) {
                 return ['result' => 'failed'];
             }
-            $ranges[] = $range;
+            $items[] = $item;
         }
-        foreach ($ranges as $range) {
-            $range->getParentNode()->del($range->getAttribute('uuid'));
+        foreach ($items as $item) {
+            $item->getParentNode()->del($item->getAttribute('uuid'));
         }
         return $this->save();
-    }
-
-    protected function save($validateFullModel = false, $disable_validation = false)
-    {
-        // Always validate deletions too: protect referenced schedules.
-        return parent::save($validateFullModel, false);
     }
 
     public function reconfigureAction()

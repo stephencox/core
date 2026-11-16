@@ -44,33 +44,17 @@ class Schedule extends BaseModel
     }
 
     /**
-     * Validate schedule names and references in addition to the individual fields.
+     * Protect schedule references in both rule stores.
      */
     public function performValidation($validateFullModel = false)
     {
         $messages = parent::performValidation($validateFullModel);
         // XXX: The legacy editor requires at least one time range; revisit this after the master/detail GUI works.
-        foreach ($this->schedule->iterateItems() as $schedule) {
-            if ($validateFullModel || $schedule->name->isFieldChanged()) {
-                // XXX: Legacy editor restriction; verify whether LAN and WAN still need to be reserved names.
-                if (in_array(strtolower($schedule->name->getValue()), ['lan', 'wan'])) {
-                    $messages->appendMessage(new Message(
-                        gettext('Schedule may not be named LAN or WAN.'),
-                        $schedule->name->__reference
-                    ));
-                }
-            }
-        }
-
         // XXX: Both rule stores refer to schedules by name
         $config = Config::getInstance()->object();
         $referenced = [];
-        foreach (['/opnsense/filter/rule', '/opnsense/OPNsense/Firewall/Filter/rules/rule'] as $path) {
-            foreach ($config->xpath($path) as $rule) {
-                if (!empty((string)$rule->sched)) {
-                    $referenced[(string)$rule->sched] = true;
-                }
-            }
+        foreach ($config->xpath('/opnsense/filter/rule/sched | /opnsense/OPNsense/Firewall/Filter/rules/rule/sched') as $name) {
+            $referenced[(string)$name] = true;
         }
         foreach ($this->originalNames as $uuid => $name) {
             if (

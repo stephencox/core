@@ -33,18 +33,7 @@ use OPNsense\Base\Validators\CallbackValidator;
 
 class ScheduleListField extends TextField
 {
-    private bool $internalAsList = false;
     private string $internalFieldSeparator = ',';
-
-    protected function defaultValidationMessage()
-    {
-        return match ($this->getInternalXMLTagName()) {
-            'day' => gettext('Enter a comma-separated list of days from 1 to 31.'),
-            'month' => gettext('Enter a comma-separated list of months from 1 to 12.'),
-            'hour' => gettext('Enter a time range such as 8:00-17:00.'),
-            default => parent::defaultValidationMessage()
-        };
-    }
 
     /**
      * Return form options for one endpoint of the legacy hour interval.
@@ -67,71 +56,49 @@ class ScheduleListField extends TextField
     public function getValidators()
     {
         $validators = parent::getValidators();
+        if ($this->getInternalXMLTagName() === 'month') {
+            return $validators;
+        }
         $validators[] = new CallbackValidator(['callback' => function ($value) {
-            $field = $this->getInternalXMLTagName();
-            // XXX: Preserve missing/empty hours: the legacy runtime treats them as all-day ranges.
-            // The day field also validates the range's selection mode, even when its own value is empty.
-            if ($value === '' && $field !== 'day') {
-                return [];
-            }
-            // Month and Day
-            if (($field === 'month' || $field === 'day') && $value !== '') {
-                $maximum = $field === 'month' ? 12 : 31;
-                foreach (explode(',', $value) as $entry) {
-                    // XXX: Preserve zero-padded month/day values such as 02/01 without rewriting them.
-                    if (!ctype_digit($entry) || strlen($entry) > 2 || (int)$entry < 1 || (int)$entry > $maximum) {
-                        return [$this->getValidationMessage()];
-                    }
+            if ($this->getInternalXMLTagName() === 'hour') {
+                // XXX: Missing hours mean all day; unpadded times and equal endpoints remain accepted.
+                if ($value === '') {
+                    return [];
                 }
-            // Hours
-            } elseif ($field === 'hour') {
                 $times = explode('-', $value);
-                if (count($times) !== 2) {
-                    return [$this->getValidationMessage()];
-                }
                 $minutes = [];
                 foreach ($times as $time) {
                     $parts = explode(':', $time);
-                    if (count($parts) !== 2) {
-                        return [$this->getValidationMessage()];
+                    if (
+                        count($parts) !== 2 || !ctype_digit($parts[0]) || !ctype_digit($parts[1]) ||
+                        (int)$parts[0] > 23 || (int)$parts[1] > 59
+                    ) {
+                        return [gettext('Enter a time range such as 8:00-17:00.')];
                     }
-                    // XXX: Preserve unpadded times such as 0:0-23:59 and 8:00-17:15; do not rewrite stored strings.
-                    foreach ($parts as $part) {
-                        if (!ctype_digit($part) || strlen($part) > 2) {
-                            return [$this->getValidationMessage()];
-                        }
-                    }
-                    [$hour, $minute] = array_map('intval', $parts);
-                    if ($hour > 23 || $minute > 59) {
-                        return [$this->getValidationMessage()];
-                    }
-                    $minutes[] = $hour * 60 + $minute;
+                    $minutes[] = (int)$parts[0] * 60 + (int)$parts[1];
                 }
-                // XXX: Preserve equal endpoints such as 9:00-9:00: the legacy UI accepts inactive intervals.
-                // XXX: Review the legacy UI restriction against overnight ranges (start > stop).
-                if ($minutes[0] > $minutes[1]) {
-                    return [gettext('The start time must be no later than the stop time.')];
-                }
+                // XXX: The legacy editor rejects overnight ranges.
+                return count($minutes) === 2 && $minutes[0] <= $minutes[1] ? [] :
+                    [gettext('The start time must be no later than the stop time.')];
             }
-            if ($field === 'day') {
-                $range = $this->getParentNode();
-                if (!$range->position->isEmpty()) {
-                    if (!$range->month->isEmpty() || !$this->isEmpty()) {
-                        return [gettext('Select either weekdays or calendar dates.')];
-                    }
-                    return [];
-                }
-                $months = $range->month->getValues();
-                $days = $this->getValues();
-                $message = gettext('Provide matching month and day lists containing valid calendar dates.');
-                if (count($days) === 0 || count($months) !== count($days)) {
+            $range = $this->getParentNode();
+            if (!$range->position->isEmpty()) {
+                return $range->month->isEmpty() && $this->isEmpty() ? [] :
+                    [gettext('Select either weekdays or calendar dates.')];
+            }
+            $months = $range->month->getValues();
+            $days = $this->getValues();
+            $message = gettext('Provide matching month and day lists containing valid calendar dates.');
+            if (!$days || count($months) !== count($days)) {
+                return [$message];
+            }
+            foreach ($months as $index => $month) {
+                // XXX: Dates repeat annually, including February 29 in leap years.
+                if (
+                    !ctype_digit($month) || !ctype_digit($days[$index]) ||
+                    !checkdate((int)$month, (int)$days[$index], 2000)
+                ) {
                     return [$message];
-                }
-                foreach ($months as $index => $month) {
-                    // XXX: Preserve month=2, day=29 even in non-leap years; legacy dates have no stored year.
-                    if (!checkdate((int)$month, (int)$days[$index], 2000)) {
-                        return [$message];
-                    }
                 }
             }
             return [];
@@ -141,17 +108,9 @@ class ScheduleListField extends TextField
 
     public function isFieldChanged()
     {
-        if ($this->getInternalXMLTagName() === 'day' && $this->getParentNode() !== null) {
-            // Revalidate paired dates when only the month list or weekday selection changes.
-            $range = $this->getParentNode();
-            return parent::isFieldChanged() || $range->month->isFieldChanged() || $range->position->isFieldChanged();
-        }
-        return parent::isFieldChanged();
-    }
-
-    public function setAsList($value)
-    {
-        $this->internalAsList = strtoupper(trim($value)) === 'Y';
+        return parent::isFieldChanged() || ($this->getInternalXMLTagName() === 'day' && (
+            $this->getParentNode()->month->isFieldChanged() || $this->getParentNode()->position->isFieldChanged()
+        ));
     }
 
     public function setFieldSeparator($value)
@@ -161,19 +120,12 @@ class ScheduleListField extends TextField
 
     public function getValues(): array
     {
-        if (!$this->internalAsList) {
-            return parent::getValues();
-        }
         // XXX: Keep order and duplicates: month=12,12,1 and day=24,25,1 pair by index, not as independent sets.
         return $this->isSet() ? explode($this->internalFieldSeparator, $this->getValue()) : [];
     }
 
     public function setValues(array $values)
     {
-        if ($this->internalAsList) {
-            $this->setValue(implode($this->internalFieldSeparator, $values));
-        } else {
-            parent::setValues($values);
-        }
+        $this->setValue(implode($this->internalFieldSeparator, $values));
     }
 }
