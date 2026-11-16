@@ -192,8 +192,15 @@ class ScheduleController extends ApiMutableModelControllerBase
     protected function save($validateFullModel = false, $disable_validation = false)
     {
         // Always validate deletions too: protect referenced schedules.
-        $result = parent::save($validateFullModel, false);
-        (new Backend())->configdRun('filter reload skip_alias');
-        return $result;
+        return parent::save($validateFullModel, false);
+    }
+
+    public function reconfigureAction()
+    {
+        if ($this->request->isPost()) {
+            (new Backend())->configdRun('filter reload skip_alias');
+            return ['status' => 'ok'];
+        }
+        return ['status' => 'failed'];
     }
 }

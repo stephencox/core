@@ -26,6 +26,7 @@
 
 <script>
     $(function () {
+        $('#reconfigureAct').SimpleActionButton();
         const escapeText = value => $('<span>').text(value).html();
         const splitList = value => value ? String(value).split(',') : [];
         const displayTimes = value => (value || '00:00-23:59').split('-').map(time => {
@@ -82,6 +83,9 @@
             }
             $('#schedule-ranges').toggle(schedules.bootgrid('getSelectedRows').length > 0);
             $('#{{formGridRange["table_id"]}}').bootgrid('reload');
+        });
+        $(document).on('settings-changed', function () {
+            schedules.bootgrid('reload');
         });
         const rangeFormatters = {};
         Object.entries(formatters).forEach(([name, formatter]) => {
@@ -224,6 +228,7 @@
     {{ partial('layout_partials/base_bootgrid_table', formGridSchedule) }}
     {{ partial('layout_partials/base_bootgrid_table', formGridRange) }}
 </div>
+{{ partial('layout_partials/base_apply_button', {'data_endpoint': '/api/firewall/schedule/reconfigure'}) }}
 {{ partial('layout_partials/base_dialog', [
     'fields': formDialogSchedule,
     'id': formGridSchedule['edit_dialog_id'],

@@ -242,6 +242,7 @@
             <pattern>api/firewall/schedule/add_range*</pattern>
             <pattern>api/firewall/schedule/set_range/*</pattern>
             <pattern>api/firewall/schedule/del_range/*</pattern>
+            <pattern>api/firewall/schedule/reconfigure</pattern>
         </patterns>
     </page-firewall-schedules-edit>
     <page-diagnostics-logs-firewall-general>
