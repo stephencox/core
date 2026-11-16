@@ -28,7 +28,6 @@
         <id>editor.dates</id>
         <label>Calendar dates</label>
         <type>text</type>
-        <readonly>true</readonly>
         <help>Select one or more dates. These dates repeat every year.</help>
         <grid_view>
             <ignore>true</ignore>
