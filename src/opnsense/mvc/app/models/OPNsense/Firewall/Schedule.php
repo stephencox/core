@@ -1,0 +1,102 @@
+<?php
+
+/*
+ * Copyright (C) 2026 Deciso B.V.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright notice,
+ *    this list of conditions and the following disclaimer.
+ *
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED ``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES,
+ * INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY
+ * AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+ * AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY,
+ * OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGE.
+ */
+
+namespace OPNsense\Firewall;
+
+use OPNsense\Base\BaseModel;
+use OPNsense\Base\Messages\Message;
+use OPNsense\Core\Config;
+
+class Schedule extends BaseModel
+{
+    private array $originalNames = [];
+    private array $originalRanges = [];
+
+    protected function init()
+    {
+        foreach ($this->schedule->iterateItems() as $uuid => $schedule) {
+            $this->originalNames[$uuid] = $schedule->name->getValue();
+            $this->originalRanges[$uuid] = array_keys($schedule->timerange->getChildren());
+        }
+    }
+
+    /**
+     * Validate schedule membership and references in addition to the individual fields.
+     */
+    public function performValidation($validateFullModel = false)
+    {
+        $messages = parent::performValidation($validateFullModel);
+        foreach ($this->schedule->iterateItems() as $uuid => $schedule) {
+            if ($validateFullModel || $schedule->name->isFieldChanged()) {
+                // XXX: Legacy editor restriction; verify whether LAN and WAN still need to be reserved names.
+                if (in_array(strtolower($schedule->name->getValue()), ['lan', 'wan'])) {
+                    $messages->appendMessage(new Message(
+                        gettext('Schedule may not be named LAN or WAN.'),
+                        $schedule->name->__reference
+                    ));
+                }
+            }
+            if (
+                !$validateFullModel && !$schedule->isFieldChanged() &&
+                ($this->originalRanges[$uuid] ?? null) === array_keys($schedule->timerange->getChildren())
+            ) {
+                continue;
+            }
+            // XXX: Legacy editor requires a range; review whether an empty, inactive schedule should be allowed.
+            if (count($schedule->timerange->getChildren()) === 0) {
+                $messages->appendMessage(new Message(
+                    gettext('The schedule must have at least one time range configured.'),
+                    $schedule->timerange->__reference
+                ));
+            }
+        }
+
+        // XXX: Both rule stores refer to schedules by name
+        $config = Config::getInstance()->object();
+        $referenced = [];
+        foreach (['/opnsense/filter/rule', '/opnsense/OPNsense/Firewall/Filter/rules/rule'] as $path) {
+            foreach ($config->xpath($path) as $rule) {
+                if (!empty((string)$rule->sched)) {
+                    $referenced[(string)$rule->sched] = true;
+                }
+            }
+        }
+        foreach ($this->originalNames as $uuid => $name) {
+            if (
+                isset($referenced[$name]) &&
+                (!isset($this->schedule->$uuid) || !$this->schedule->$uuid->name->isEqual($name))
+            ) {
+                $messages->appendMessage(new Message(
+                    gettext('A schedule in use by a firewall rule cannot be renamed or deleted.'),
+                    $this->schedule->__reference . '.' . $uuid . '.name'
+                ));
+            }
+        }
+        return $messages;
+    }
+}
