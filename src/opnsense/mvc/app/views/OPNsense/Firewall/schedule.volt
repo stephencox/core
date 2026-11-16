@@ -131,11 +131,9 @@
                 return;
             }
             const dates = $(this).datepicker('getDates');
-            if (dates.length) {
-                field('timerange.position').val([]).selectpicker('refresh');
-            }
             field('timerange.month').val(dates.map(date => date.getMonth() + 1).join(','));
             field('timerange.day').val(dates.map(date => date.getDate()).join(','));
+            updateDateFields();
         });
         ['timerange.month', 'timerange.day', 'timerange.hour'].forEach(id => row(id).hide());
         // Keep model validation messages beside the controls that edit those values.
@@ -143,11 +141,11 @@
             .appendTo(row('editor.dates').children('td').last());
         field('help_block_timerange.hour').appendTo(row('editor.stop').children('td').last());
 
-        field('timerange.position').on('change', function () {
-            if (!mapping && $(this).val().length) {
-                field('editor.dates').datepicker('clearDates');
-            }
-        });
+        function updateDateFields() {
+            row('editor.dates').toggle(!field('timerange.position').val().length);
+            row('timerange.position').toggle(!field('timerange.day').val());
+        }
+        field('timerange.position').on('change', updateDateFields);
         field('editor.start').add(field('editor.stop')).on('change', function () {
             if (!mapping) {
                 field('timerange.hour').val(field('editor.start').val() + '-' +
@@ -164,6 +162,7 @@
             field('timerange.hour').val(field('editor.start').val() + '-' + field('editor.stop').val());
             // Preserve duplicate dates and date order until the calendar selection changes.
             mapping = false;
+            updateDateFields();
         });
 
     });
