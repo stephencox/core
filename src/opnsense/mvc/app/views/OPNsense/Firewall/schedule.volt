@@ -84,16 +84,24 @@
                 }
             }
         });
+        /* a bit of trickery to add heading texts */
+        $("div.actionBar").each(function(){
+            let heading_text = "";
+            if ($(this).closest(".bootgrid-header").attr("id") === "{{formGridSchedule['table_id']}}-header") {
+                heading_text = "{{ lang._('Schedule') }}";
+            } else {
+                heading_text = "{{ lang._('Time ranges') }}";
+            }
+            $(this).parent().prepend($('<div class="col-sm-2 theading-text">'+heading_text+'</div>'));
+            $(this).removeClass("col-sm-12");
+            $(this).addClass("col-sm-10");
+        });
     });
 </script>
 
 <div class="content-box">
-    <h4>{{ lang._('Schedules') }}</h4>
     {{ partial('layout_partials/base_bootgrid_table', formGridSchedule) }}
-    <div id="schedule-ranges" style="display: none;">
-        <h4>{{ lang._('Time ranges') }}</h4>
-        {{ partial('layout_partials/base_bootgrid_table', formGridRange) }}
-    </div>
+    {{ partial('layout_partials/base_bootgrid_table', formGridRange) }}
 </div>
 {{ partial('layout_partials/base_dialog', [
     'fields': formDialogSchedule,

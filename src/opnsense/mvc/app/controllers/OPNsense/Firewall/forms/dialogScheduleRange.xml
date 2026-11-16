@@ -1,12 +1,5 @@
 <form>
     <field>
-        <id>schedule</id>
-        <type>hidden</type>
-        <grid_view>
-            <ignore>true</ignore>
-        </grid_view>
-    </field>
-    <field>
         <id>timerange.position</id>
         <label>Weekdays</label>
         <type>select_multiple</type>
