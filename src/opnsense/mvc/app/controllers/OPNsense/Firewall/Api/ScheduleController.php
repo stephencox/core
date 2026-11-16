@@ -133,7 +133,22 @@ class ScheduleController extends ApiMutableModelControllerBase
             }
             $schedule = $range->getParentNode()->getParentNode();
         }
-        return ['timerange' => $range->getNodes(), 'schedule' => $schedule->name->getValue()];
+        $result = [
+            'timerange' => $range->getNodes(),
+            'editor' => [
+                'start' => $range->hour->getTimeOptions(0),
+                'stop' => $range->hour->getTimeOptions(1)
+            ],
+            'schedule' => []
+        ];
+        foreach ($this->getModel()->schedule->iterateItems() as $parent) {
+            $name = $parent->name->getValue();
+            $result['schedule'][$name] = [
+                'value' => $name,
+                'selected' => $schedule->name->isEqual($name) ? 1 : 0
+            ];
+        }
+        return $result;
     }
 
     public function addRangeAction()
@@ -146,10 +161,21 @@ class ScheduleController extends ApiMutableModelControllerBase
 
     public function setRangeAction($id)
     {
+        if (!$this->request->isPost() || !$this->request->hasPost('timerange')) {
+            return ['result' => 'failed'];
+        }
         Config::getInstance()->lock();
         $range = $this->findRange($id);
-        return $range === null ? ['result' => 'failed'] :
-            $this->setBase('timerange', $range->getParentNode()->__reference, $range->getAttribute('uuid'));
+        $schedule = $this->findSchedule($this->request->getPost('schedule', 'string', ''));
+        if ($range === null || $schedule === null) {
+            return ['result' => 'failed'];
+        }
+        if ($range->getParentNode() !== $schedule->timerange) {
+            $values = array_replace($range->getNodeContent(), $this->request->getPost('timerange'));
+            $range->getParentNode()->del($range->getAttribute('uuid'));
+            return $this->addBase('timerange', $schedule->timerange->__reference, $values);
+        }
+        return $this->setBase('timerange', $schedule->timerange->__reference, $range->getAttribute('uuid'));
     }
 
     public function delRangeAction($ids)

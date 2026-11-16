@@ -46,6 +46,24 @@ class ScheduleListField extends TextField
         };
     }
 
+    /**
+     * Return form options for one endpoint of the legacy hour interval.
+     */
+    public function getTimeOptions(int $index): array
+    {
+        $time = $this->getValues()[$index] ?? ($index === 0 ? '00:00' : '23:59');
+        [$hour, $minute] = array_pad(explode(':', $time), 2, '0');
+        $selected = sprintf('%02d:%02d', (int)$hour, (int)$minute);
+        $options = [];
+        for ($hour = 0; $hour < 24; $hour++) {
+            foreach ([0, 15, 30, 45, 59] as $minute) {
+                $value = sprintf('%02d:%02d', $hour, $minute);
+                $options[$value] = ['value' => $value, 'selected' => $value === $selected ? 1 : 0];
+            }
+        }
+        return $options;
+    }
+
     public function getValidators()
     {
         $validators = parent::getValidators();
@@ -72,20 +90,19 @@ class ScheduleListField extends TextField
                     return [$this->getValidationMessage()];
                 }
                 $minutes = [];
-                foreach ($times as $index => $time) {
+                foreach ($times as $time) {
                     $parts = explode(':', $time);
                     if (count($parts) !== 2) {
                         return [$this->getValidationMessage()];
                     }
-                    // XXX: Preserve unpadded times such as 0:0-24:0 and 8:00-17:15; do not rewrite stored strings.
+                    // XXX: Preserve unpadded times such as 0:0-23:59 and 8:00-17:15; do not rewrite stored strings.
                     foreach ($parts as $part) {
                         if (!ctype_digit($part) || strlen($part) > 2) {
                             return [$this->getValidationMessage()];
                         }
                     }
                     [$hour, $minute] = array_map('intval', $parts);
-                    // XXX: Accept 24:0 and 24:00 only as the stop time, representing midnight at the end of the day.
-                    if ($hour > ($index === 1 ? 24 : 23) || $minute > 59 || ($hour === 24 && $minute !== 0)) {
+                    if ($hour > 23 || $minute > 59) {
                         return [$this->getValidationMessage()];
                     }
                     $minutes[] = $hour * 60 + $minute;

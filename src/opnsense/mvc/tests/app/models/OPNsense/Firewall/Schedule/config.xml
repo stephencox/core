@@ -59,8 +59,8 @@
       </timerange>
       <timerange>
         <position>2</position>
-        <hour>0:0-24:0</hour>
-        <rangedescr>Midnight endpoint</rangedescr>
+        <hour>0:0-23:59</hour>
+        <rangedescr>Unpadded start time</rangedescr>
       </timerange>
       <timerange>
         <position>3</position>

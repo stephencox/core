@@ -1,38 +1,70 @@
 <form>
     <field>
+        <id>editor.mode</id>
+        <label>Repeat</label>
+        <type>dropdown</type>
+        <grid_view>
+            <ignore>true</ignore>
+        </grid_view>
+    </field>
+    <field>
         <id>timerange.position</id>
         <label>Weekdays</label>
         <type>select_multiple</type>
-        <help>Select weekdays, or leave empty and specify months and days.</help>
         <grid_view>
-            <formatter>text</formatter>
+            <formatter>weekdays</formatter>
+        </grid_view>
+    </field>
+    <field>
+        <id>editor.dates</id>
+        <label>Calendar dates</label>
+        <type>text</type>
+        <readonly>true</readonly>
+        <help>Select one or more dates. These dates repeat every year.</help>
+        <grid_view>
+            <ignore>true</ignore>
         </grid_view>
     </field>
     <field>
         <id>timerange.month</id>
         <label>Months</label>
         <type>text</type>
-        <help>Comma-separated months, in the same order as the days.</help>
         <grid_view>
-            <formatter>text</formatter>
+            <ignore>true</ignore>
         </grid_view>
     </field>
     <field>
         <id>timerange.day</id>
-        <label>Days</label>
+        <label>Calendar dates</label>
         <type>text</type>
-        <help>Comma-separated days, paired with the months.</help>
         <grid_view>
-            <formatter>text</formatter>
+            <formatter>dates</formatter>
+            <sortable>false</sortable>
+        </grid_view>
+    </field>
+    <field>
+        <id>editor.start</id>
+        <label>Start time</label>
+        <type>dropdown</type>
+        <grid_view>
+            <ignore>true</ignore>
+        </grid_view>
+    </field>
+    <field>
+        <id>editor.stop</id>
+        <label>End time</label>
+        <type>dropdown</type>
+        <help>The end time is exclusive. For an overnight period, add a separate range for each day.</help>
+        <grid_view>
+            <ignore>true</ignore>
         </grid_view>
     </field>
     <field>
         <id>timerange.hour</id>
         <label>Time range</label>
         <type>text</type>
-        <help>For example 8:00-17:00. Leave empty for the whole day.</help>
         <grid_view>
-            <formatter>text</formatter>
+            <formatter>hours</formatter>
         </grid_view>
     </field>
     <field>

@@ -26,9 +26,30 @@
 
 <script>
     $(function () {
+        const escapeText = value => $('<span>').text(value).html();
+        const splitList = value => value ? String(value).split(',') : [];
+        const displayTimes = value => (value || '00:00-23:59').split('-').map(time => {
+            return time.split(':').map(part => part.padStart(2, '0')).join(':');
+        });
+        const dateLabel = new Intl.DateTimeFormat(undefined, {month: 'long', day: 'numeric'});
+        const weekdayLabel = new Intl.DateTimeFormat(undefined, {weekday: 'long'});
+        const weekdays = Array.from({length: 7}, (_, index) => weekdayLabel.format(new Date(2000, 0, 3 + index)));
         const formatters = {
             text: function (column, row) {
-                return $('<span>').text(row[column.id] || '').html();
+                return escapeText(row[column.id] || '');
+            },
+            weekdays: function (column, row) {
+                return escapeText(splitList(row.position).map(day => weekdays[Number(day) - 1] || day).join(', '));
+            },
+            dates: function (column, row) {
+                const months = splitList(row.month);
+                return escapeText(splitList(row.day).map((day, index) => {
+                    const date = new Date(2000, Number(months[index]) - 1, Number(day));
+                    return Number.isNaN(date.getTime()) ? (months[index] || '?') + '/' + day : dateLabel.format(date);
+                }).join(', '));
+            },
+            hours: function (column, row) {
+                return escapeText(displayTimes(row.hour).join(' – '));
             }
         };
         const schedules = $('#{{formGridSchedule["table_id"]}}').UIBootgrid({
@@ -62,6 +83,12 @@
             $('#schedule-ranges').toggle(schedules.bootgrid('getSelectedRows').length > 0);
             $('#{{formGridRange["table_id"]}}').bootgrid('reload');
         });
+        const rangeFormatters = {};
+        Object.entries(formatters).forEach(([name, formatter]) => {
+            rangeFormatters[name] = (column, row) => {
+                return row[column.id] === '' || row[column.id] == null ? '*' : formatter(column, row);
+            };
+        });
         $('#{{formGridRange["table_id"]}}').UIBootgrid({
             search: '/api/firewall/schedule/search_range/',
             get: '/api/firewall/schedule/get_range/',
@@ -69,7 +96,7 @@
             set: '/api/firewall/schedule/set_range/',
             del: '/api/firewall/schedule/del_range/',
             options: {
-                formatters: formatters,
+                formatters: rangeFormatters,
                 requestHandler: function (request) {
                     const selected = schedules.bootgrid('getSelectedRows');
                     request.schedule = selected.length ? selected[0] : '';
@@ -84,6 +111,100 @@
                 }
             }
         });
+        const rangeDialog = $('#{{formGridRange["edit_dialog_id"]}}');
+        const field = id => rangeDialog.find('[id="' + id + '"]');
+        const row = id => field(id).closest('tr');
+        let mapping = false;
+
+        // The calendar edits paired month/day lists; the reference leap year is never stored.
+        $.fn.datepicker.dates.schedule = $.extend({}, $.fn.datepicker.dates.en, {
+            days: Array.from({length: 7}, (_, day) => weekdayLabel.format(new Date(2000, 0, 2 + day))),
+            daysShort: Array.from({length: 7}, (_, day) => new Intl.DateTimeFormat(undefined, {
+                weekday: 'short'
+            }).format(new Date(2000, 0, 2 + day))),
+            daysMin: Array.from({length: 7}, (_, day) => new Intl.DateTimeFormat(undefined, {
+                weekday: 'narrow'
+            }).format(new Date(2000, 0, 2 + day))),
+            months: Array.from({length: 12}, (_, month) => new Intl.DateTimeFormat(undefined, {
+                month: 'long'
+            }).format(new Date(2000, month, 1))),
+            titleFormat: 'MM',
+            clear: "{{ lang._('Clear') }}"
+        });
+        field('editor.dates').datepicker({
+            language: 'schedule',
+            format: {
+                toDisplay: function (date) {
+                    return String(date.getUTCMonth() + 1).padStart(2, '0') + '/' +
+                        String(date.getUTCDate()).padStart(2, '0');
+                },
+                toValue: function (value) {
+                    const [month, day] = value.split('/').map(Number);
+                    return new Date(Date.UTC(2000, month - 1, day));
+                }
+            },
+            multidate: true,
+            weekStart: 1,
+            clearBtn: true,
+            maxViewMode: 0,
+            defaultViewDate: new Date(2000, 0, 1),
+            startDate: new Date(2000, 0, 1),
+            endDate: new Date(2000, 11, 31),
+            container: rangeDialog
+        }).on('changeDate clearDate', function () {
+            if (mapping) {
+                return;
+            }
+            const dates = $(this).datepicker('getDates');
+            field('timerange.month').val(dates.map(date => date.getMonth() + 1).join(','));
+            field('timerange.day').val(dates.map(date => date.getDate()).join(','));
+        });
+        ['timerange.month', 'timerange.day', 'timerange.hour'].forEach(id => row(id).hide());
+        // Keep model validation messages beside the controls that edit those values.
+        field('help_block_timerange.month').add(field('help_block_timerange.day'))
+            .appendTo(row('editor.mode').children('td').last());
+        field('help_block_timerange.hour').appendTo(row('editor.stop').children('td').last());
+
+        function showRangeFields() {
+            const calendar = field('editor.mode').val() === 'dates';
+            row('timerange.position').toggle(!calendar);
+            row('editor.dates').toggle(calendar);
+        }
+
+        field('editor.mode').on('change', function () {
+            if (!mapping) {
+                if ($(this).val() === 'dates') {
+                    field('timerange.position').val([]).selectpicker('refresh');
+                } else {
+                    field('editor.dates').datepicker('clearDates');
+                    field('timerange.month').add(field('timerange.day')).val('');
+                }
+            }
+            showRangeFields();
+        });
+        field('editor.start').add(field('editor.stop')).on('change', function () {
+            if (!mapping) {
+                field('timerange.hour').val(field('editor.start').val() + '-' +
+                    field('editor.stop').val());
+            }
+        });
+        rangeDialog.on('opnsense_bootgrid_mapped', function () {
+            mapping = true;
+            field('editor.mode').empty()
+                .append($('<option>').val('weekdays').text("{{ lang._('Every week') }}"))
+                .append($('<option>').val('dates').text("{{ lang._('Every year on selected dates') }}"))
+                .val(field('timerange.month').val() ? 'dates' : 'weekdays').selectpicker('refresh');
+            const months = splitList(field('timerange.month').val());
+            const days = splitList(field('timerange.day').val());
+            field('editor.dates').datepicker('setDates', days.map((day, index) => {
+                return new Date(2000, Number(months[index]) - 1, Number(day));
+            }));
+            field('timerange.hour').val(field('editor.start').val() + '-' + field('editor.stop').val());
+            // Preserve duplicate dates and date order until the calendar selection changes.
+            mapping = false;
+            showRangeFields();
+        });
+
         /* a bit of trickery to add heading texts */
         $("div.actionBar").each(function(){
             let heading_text = "";

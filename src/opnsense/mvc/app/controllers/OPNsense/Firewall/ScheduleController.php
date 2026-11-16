@@ -32,6 +32,20 @@ use OPNsense\Base\IndexController;
 
 class ScheduleController extends IndexController
 {
+    protected function templateJSIncludes()
+    {
+        $result = parent::templateJSIncludes();
+        $result[] = '/ui/js/bootstrap-datepicker.min.js';
+        return $result;
+    }
+
+    protected function templateCssIncludes()
+    {
+        $result = parent::templateCssIncludes();
+        $result[] = '/ui/css/bootstrap-datepicker3.min.css';
+        return $result;
+    }
+
     public function indexAction()
     {
         $this->view->formDialogSchedule = $this->getForm('dialogSchedule');
